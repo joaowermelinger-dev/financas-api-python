@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from psycopg import IntegrityError
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,9 +21,14 @@ def health_check():
 @app.post("/categorias")
 def criar_categoria(dados: CategoriaCreate):
     with Session(engine) as session:
-        categoria = Categoria(name=dados.name)
-        session.add(categoria)
-        session.commit()
+        try:
+            categoria = Categoria(name=dados.name)
+            session.add(categoria)
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="Categoria já existe.")
+        
         session.refresh(categoria)
         return {"id": categoria.id, "name": categoria.name}
 
